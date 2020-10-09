@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  his is my millisecond converter template. This project contains Autoscaling group with Elastic Load Balancer.
+  It has a security group, which enables 22 SSH and 80 HTTP ports from anywhere available.
+  
+Parameters:
+  VpcId:
+    Description: VpcId of my existing Virtual Private Cloud (VPC)
+    Type: AWS::EC2::VPC::Id
+  PolicyTargetValue:
+    Description: Please enter your target value that triggers the AutoScalingGroup
+    Type: String
+    Default: "60"
+  InstanceType:
+    Description: WebServer EC2 instance Type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+        - t2.micro
+        - t1.micro
+        - m1.small
+    ConstraintDescription: must be a valid EC2 instance type
+  KeyName:
+    Description: The EC2 Key Pair allow SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+  Subnets:
+    Description: The Subnet Id in our VPC
+    Type: AWS::EC2::Subnet::Id
+
+Mappings: #completed
+  RegionImageMap:
+    us-east-1:
+      AMI: ami-0c94855ba95c71c99
+    us-east-2:
+      AMI: ami-0603cbe34fd08cb81
+    us-west-1:
+      AMI: ami-0e65ed16c9bf1abc7
+    us-west-2:
+      AMI: ami-0841edc20334f9287
+    eu-west-1:
+      AMI: ami-08a2aed6e0a6f9c7d
+
+Resources:
+  myAutoScalingGroup: #completed
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      AvailabilityZones: !GetAZs 
+      Cooldown: 300
+      DesiredCapacity: 1
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
+      LaunchConfigurationName: myLaunchConfiguration
+      MaxSize: "3"
+      MinSize: "1"
+      TargetGroupARNs:
+        - !Ref myALBTargetGroup
+
+  myLaunchConfiguration:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Properties:
+      ImageId: !FindInMap 
+        - RegionImageMap
+        - !Ref AWS::Region
+        - AMI
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref Keyname
+      SecurityGroups:
+        - !Ref mySecurityGroup
+      UserData: !Base64 |
+          #! /bin/bash
+          yum update -y
+          yum install python3 -y
+          pip3 install flask
+          cd /home/ec2-user
+          wget
+          mkdir templates
+          cd templates
+          wget
+          wget
+          cd ..
+          python3 app.py
+    
+  myCpuPolicy: #completed
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AutoScalingGroupName: !Ref myAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricType:ASGAverageCPUUtilization
+      TargetValue: !Ref PolicyTargetValue
+
+  LogicalID: #completed
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      SecurityGroups:
+        - !GetAtt mySecurityGroup.GroupId
+      Subnets:
+        - !Ref Subnets
+
+  myALBListener: #completed
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions: 
+        - Type: forward
+          TargetGroupArn: !Ref myALBTargetGroup
+      LoadBalancerArn: !Ref myAppLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  myALBTargetGroup: #completed
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPort: HTTP
+      HealthCheckProtocol: TCP
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VpcID
+
+  mySecurityGroup: #completed
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Enables HTTP and SHH
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80 
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22 
+          ToPort: 22
+          CidrIp: 0.0.0.0/0    
+
+Outputs: #completed
+  URL:
+    Description: Url Website
+    Value: !Join
+      - ""
+      - - "http://"
+        - !GetAtt myAppLoadBalancer.DNSName
